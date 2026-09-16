@@ -1,0 +1,70 @@
+name: pre-commit
+description: Run pre-commit hooks across all files, with optional hook exclusions.
+
+inputs:
+  skip:
+    description: >-
+      Comma-separated hook ids to exclude, passed to pre-commit as SKIP.
+      Ids must match the `id:` in .pre-commit-config.yaml
+    required: false
+    default: ""
+  hook-stage:
+    description: >-
+      Hook stage to run. The default, pre-commit, is the stage local commits
+      use. Hooks declared only for other stages (pre-push, commit-msg) do
+      not run unless this is set to that stage.
+    required: false
+    default: pre-commit
+  extra-args:
+    description: Additional arguments appended to `pre-commit run`.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    # Go, because several hooks are Go tooling that pre-commit builds or
+    # downloads itself (golangci-lint, gitleaks). Version comes from go.mod
+    # so it cannot drift from the version the build uses.
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: false
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.x"
+
+    # pre-commit builds an isolated environment per hook repo on first run,
+    # which dominates the job's runtime. The cache is keyed on the config
+    # file: bumping any `rev:` invalidates it, which is exactly when the
+    # environments must be rebuilt.
+    - name: Cache pre-commit environments
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit-${{ runner.os }}-py${{ env.pythonLocation }}-${{ hashFiles('.pre-commit-config.yaml') }}
+        restore-keys: |
+          pre-commit-${{ runner.os }}-py${{ env.pythonLocation }}-
+
+    - name: Install pre-commit
+      shell: bash
+      run: python -m pip install --disable-pip-version-check pre-commit
+
+    # --show-diff-on-failure turns "a hook rewrote your file" from an opaque
+    # failure into a diff that can be applied locally.
+    - name: Run pre-commit
+      shell: bash
+      env:
+        # Passed via the environment rather than interpolated into the
+        # command, so the input cannot inject shell syntax.
+        SKIP: ${{ inputs.skip }}
+      run: >-
+        pre-commit run
+        --all-files
+        --show-diff-on-failure
+        --color=always
+        --hook-stage '${{ inputs.hook-stage }}'
+        ${{ inputs.extra-args }}

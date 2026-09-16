@@ -1,0 +1,39 @@
+name: golangci-lint
+description: Lint Go code with golangci-lint.
+
+inputs:
+  version:
+    description: >-
+      golangci-lint version to run. Keep in sync with the golangci-lint
+      `rev:` in .pre-commit-config.yaml.
+    required: false
+    default: v2.13.1
+  args:
+    description: Extra arguments appended to `golangci-lint run`.
+    required: false
+    default: ""
+  working-directory:
+    description: Directory to run the linter in.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    # golangci-lint type-checks the packages it lints, so it needs a real
+    # toolchain. The version comes from go.mod rather than being pinned
+    # here, so the Go version is also defined in exactly one place.
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        # golangci-lint-action manages its own module/build cache below;
+        # a second cache here would only duplicate it.
+        cache: false
+
+    - name: Run golangci-lint
+      uses: golangci/golangci-lint-action@v8
+      with:
+        version: ${{ inputs.version }}
+        args: ${{ inputs.args }}
+        working-directory: ${{ inputs.working-directory }}

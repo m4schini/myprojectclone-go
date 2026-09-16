@@ -1,0 +1,181 @@
+# Policy: enable ALL linters, then disable only those that contradict:
+#   [EG]  Effective Go             https://go.dev/doc/effective_go
+#   [CRC] Go Code Review Comments  https://go.dev/wiki/CodeReviewComments
+#   [GSG] Google Go Style Guide    https://google.github.io/styleguide/go/guide
+#     (incl. its Decisions page,   https://google.github.io/styleguide/go/decisions)
+#
+# Each disabled linter cites the section it contradicts.
+
+version: "2"
+
+linters:
+  default: all
+  disable:
+    # [EG] "Errors" and [CRC] "Error Strings" treat errors.New / fmt.Errorf as
+    # the idiomatic way to construct errors. err113 forbids such "dynamic"
+    # errors and demands package-level sentinels everywhere, which the
+    # reference docs' own examples would fail.
+    # - err113 # Enabled because of personal preference
+
+    # [EG] "Allocation with new" / the zero-value doctrine: "the zero value of
+    # each type ... is useful"; idiomatic Go deliberately omits fields whose
+    # zero value is intended. exhaustruct_v5 requires every struct field to be
+    # initialized explicitly, contradicting zero-value-driven design.
+    # - exhaustruct_v5
+    # Deprecated predecessor of exhaustruct_v5; excluded by `default: all`
+    # already, disabled explicitly for clarity.
+    - exhaustruct
+
+    # Not a doc contradiction: depguard enforces an allow/deny import list
+    # that this project does not maintain. Without config it either no-ops or
+    # flags everything, adding noise rather than catching real violations.
+    - depguard
+
+    # [EG] "The init function" explicitly documents and endorses init() for
+    # setup that cannot be expressed as declarations. gochecknoinits bans it
+    # outright.
+    - gochecknoinits
+
+    # [CRC] "Line Length": "There is no rigid line length limit in Go code."
+    # [GSG Decisions] "Line length" says the same. lll imposes a hard limit.
+    - lll
+
+    # [EG] "Formatting" and [CRC] "Gofmt": gofmt output is the canonical
+    # format; blank-line placement beyond it is not mandated anywhere, and the
+    # canonical examples in Effective Go (returns immediately after the last
+    # statement) would fail nlreturn's mandatory blank line before return.
+    - nlreturn
+
+    # [EG] "Control structures - If" shows `if err := file.Chmod(0664);
+    # err != nil { ... }` as the idiom; [CRC] "Indent Error Flow" builds on it.
+    # noinlineerr forbids exactly this form.
+    - noinlineerr
+
+    # [EG] "Named result parameters": names "can make code shorter and
+    # clearer" and are endorsed for documentation and deferred modification;
+    # [CRC] "Named Result Parameters" limits but does not ban them.
+    # nonamedreturns bans them entirely.
+    - nonamedreturns
+
+    # [CRC] "Variable Names": "Prefer c to lineCount. Prefer i to sliceIndex."
+    # [GSG] concision / [GSG Decisions] "Variable names": name length should
+    # scale with scope, short names in small scopes are preferred. varnamelen
+    # penalizes exactly those short names.
+    - varnamelen
+
+    # Not a doc contradiction, but stricter than idiom: forces black-box
+    # tests (`package foo_test`) while stdlib and the reference docs treat
+    # same-package white-box tests as equally idiomatic. Re-enable for
+    # stricter, API-focused test linting.
+    - testpackage
+
+    # Same rationale as nlreturn: [EG] "Formatting" / [CRC] "Gofmt" make gofmt
+    # the arbiter of layout; wsl's additional blank-line rules flag code
+    # formatted exactly like the reference docs' examples.
+    - wsl_v5
+    # Deprecated predecessor of wsl_v5; excluded by `default: all` already,
+    # disabled explicitly for clarity.
+    - wsl
+
+    # Project convention is to use TODO and FIXME to mark areas for future improvements
+    - godox
+
+    # Deprecated since v2.12.0 in favour of gomodguard_v2; excluded by
+    # `default: all` already, disabled explicitly to silence the warning.
+    - gomodguard
+
+    # //go:embed vars, sentinel errors, and Cobra command vars are all
+    # legitimate package-level variables used throughout this codebase.
+    # Banning globals outright contradicts their idiomatic use.
+    - gochecknoglobals
+
+  settings:
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+    goheader:
+      # License is still TODO
+      template: |-
+        SPDX-License-Identifier: TODO
+
+  exclusions:
+    # Generated files (client/client.gen.go, ports/rest/v1/gen.go — see
+    # AGENTS.md "Code Generation") are never hand-edited, so no linter should
+    # report on them. "lax" matches Go's standard `// Code generated ...
+    # DO NOT EDIT.` marker anywhere in the file (not just the first line),
+    # which is how oapi-codegen emits it in both files.
+    generated: strict
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+
+      # Tests are linted more laxly. Rationale per group:
+      #
+      # Table-driven tests ([GSG Best Practices] "Test tables") are long,
+      # repetitive, and inline their data by design; splitting them into
+      # helpers or constants hurts the readability the docs ask for
+      # ([GSG Decisions] "Useful test failures": keep the failing case
+      # visible at the call site).
+      #   - dupl, funlen, gocognit, gocyclo, cyclop, nestif, maintidx:
+      #     length/complexity/duplication metrics are dominated by test tables.
+      #   - goconst, mnd: repeated strings and magic numbers ARE the test
+      #     data; naming them adds indirection, not meaning.
+      #
+      # Test code is not production attack surface or public API:
+      #   - gosec: hardcoded test credentials, math/rand, permissive file
+      #     modes, and /tmp paths are normal in tests.
+      #   - wrapcheck: error wrapping is an API-design concern for callers;
+      #     tests have none.
+      #
+      # Failure mode in tests is "test fails", which is the desired outcome:
+      #   - forcetypeassert: an unchecked assertion panics and fails the test
+      #     at exactly the right spot.
+      #
+      # Stubs reproduce the contract they stand in for:
+      #   - nilnil: a test double returning (nil, nil) is mirroring the
+      #     production signature it substitutes, not designing a new API.
+      #
+      # Performance of test code is irrelevant:
+      #   - prealloc, perfsprint.
+      - path: _test\.go
+        linters:
+          - cyclop
+          - dupl
+          - forcetypeassert
+          - funlen
+          - gocognit
+          - goconst
+          - gocyclo
+          - gosec
+          - maintidx
+          - mnd
+          - nestif
+          - nilnil
+          - perfsprint
+          - prealloc
+          - wrapcheck
+          - noctx
+
+issues:
+  # golangci-lint defaults to reporting at most 50 issues per linter and 3 of
+  # the same kind, silently truncating the rest -- which makes a run look clean
+  # while fixes to the visible three uncover more. Report everything.
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # Likewise, the default keeps only one issue per source line, so a function
+  # flagged by two linters at once only ever shows one of them.
+  uniq-by-line: false
+
+formatters:
+  # [CRC] "Gofmt": "Run gofmt on your code"; [GSG] requires gofmt-conforming
+  # source. [CRC] "Imports": goimports manages import grouping.
+  # golines is intentionally absent: it enforces a line length, which
+  # contradicts [CRC] "Line Length" (see lll above).
+  enable:
+    - gofmt
+    - goimports

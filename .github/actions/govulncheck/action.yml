@@ -1,0 +1,38 @@
+name: govulncheck
+description: Scan Go dependencies and the Go toolchain for known vulnerabilities.
+
+inputs:
+  version:
+    description: Version of golang.org/x/vuln/cmd/govulncheck to install.
+    required: false
+    default: latest
+  package:
+    description: Package pattern to analyse.
+    required: false
+    default: ./...
+  work-directory:
+    description: Directory to run govulncheck in.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    # Installed from source rather than via a marketplace action: the tool is
+    # a single `go install` away, and this keeps the supply chain for a
+    # security check limited to the Go module proxy we already trust for the
+    # build itself.
+    - name: Install govulncheck
+      shell: bash
+      run: go install golang.org/x/vuln/cmd/govulncheck@${{ inputs.version }}
+
+    - name: Run govulncheck
+      shell: bash
+      working-directory: ${{ inputs.work-directory }}
+      run: govulncheck ${{ inputs.package }}

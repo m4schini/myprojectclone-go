@@ -1,0 +1,25 @@
+name: test
+description: Run the Go test suite including the integration tests (-tags=integration).
+
+inputs:
+  packages:
+    description: Package pattern to test, passed to the Makefile as PKGS.
+    required: false
+    default: ./...
+  go-test-flags:
+    description: Flags for `go test`, passed to the Makefile as GOTESTFLAGS.
+    required: false
+    default: -race -shuffle=on
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Run tests with the integration suite
+      shell: bash
+      run: make test-integration PKGS='${{ inputs.packages }}' GOTESTFLAGS='${{ inputs.go-test-flags }}'

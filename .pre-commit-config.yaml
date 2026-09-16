@@ -1,0 +1,93 @@
+minimum_pre_commit_version: "4.0.0"
+
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+  - pre-push
+
+default_stages:
+  - pre-commit
+
+repos:
+  # ---------------------------------------------------------------------
+  # File hygiene. Cheap, language-agnostic, and the reason a diff never
+  # contains a stray CRLF or a 40 MB accident.
+  # ---------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      # Dockerfile, .dockerignore and CLAUDE.md are symlinks on purpose.
+      # These two hooks are the mechanical half of that invariant: the first
+      # catches a symlink pointing at nothing, the second catches a symlink
+      # that was replaced by a regular file.
+      - id: check-symlinks
+      - id: destroyed-symlinks
+
+  # ---------------------------------------------------------------------
+  # Secrets. Scans the staged diff only, so it stays fast and does not
+  # re-flag whatever is already in history.
+  # ---------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # ---------------------------------------------------------------------
+  # Go formatting and linting.
+  #
+  # This `rev:` is the authoritative golangci-lint pin: pre-commit pins the
+  # hook and the tool together. The Taskfile's GOLANGCI_LINT_VERSION must
+  # match it, and the local `golangci-lint-pin-drift` hook below enforces
+  # that.
+  # ---------------------------------------------------------------------
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v2.12.2
+    hooks:
+      # Formats the repository in place. When it rewrites a file the commit
+      # fails and you re-stage: pre-commit never quietly commits bytes you did
+      # not look at.
+      - id: golangci-lint-fmt
+        stages: [pre-commit]
+
+      # Diff-scoped linting. Upstream's entry is already
+      # `golangci-lint run --new-from-rev HEAD --fix`, and pre-commit appends
+      # `args:` to it — so this adds exactly one flag.
+      #
+      # --whole-files is not optional: without it, golangci-lint reports only
+      # issues on the lines the commit touched, and a change that breaks a
+      # function twenty lines below the edit passes the hook and fails CI.
+      - id: golangci-lint
+        args: [--whole-files]
+        stages: [pre-commit]
+
+      # Config schema validation. Upstream's `files:` already scopes this to
+      # .golangci.{yml,yaml,toml,json}.
+      - id: golangci-lint-config-verify
+        stages: [pre-commit]
+
+      - id: golangci-lint-full
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      # commit-msg stage: the Conventional Commits contract. Delegates to
+      # hack/hooks/conventional-commit.sh, the same validator
+      # .github/workflows/pr-title.yml uses for PR titles, so a local commit
+      # and a squash-merge title can never be judged differently.
+      - id: conventional-commit-msg
+        name: conventional commit message (feat|fix|chore)
+        entry: hack/hooks/commit-msg.sh
+        language: system
+        stages: [commit-msg]

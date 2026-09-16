@@ -1,0 +1,69 @@
+# Continuous integration: one job per check, all of them on every pull
+# request and on every push to the default branch.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run pre-commit hooks
+        uses: ./.github/actions/pre-commit
+        with:
+          skip: golangci-lint,golangci-lint-fmt,golangci-lint-full
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run tests (unit+integration)
+        uses: ./.github/actions/test
+
+  golangci-lint:
+    name: golangci-lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Lint
+        uses: ./.github/actions/golangci-lint
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Scan dependencies for reachable vulnerabilities
+        uses: ./.github/actions/govulncheck
+
+  trivy:
+    name: trivy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Scan repository for vulnerabilities, secrets and misconfigurations
+        uses: ./.github/actions/trivy

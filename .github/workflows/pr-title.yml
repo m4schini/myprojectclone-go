@@ -1,0 +1,30 @@
+# Thin GitHub Actions wrapper around hack/hooks/conventional-commit.sh.
+
+name: pr-title
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: pr-title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate PR title against Conventional Commits rules
+        env:
+          # Passed via the environment, never interpolated into the shell
+          # script, so a malicious title cannot inject commands.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s' "$PR_TITLE" | hack/hooks/conventional-commit.sh

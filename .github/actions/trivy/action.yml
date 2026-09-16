@@ -1,0 +1,49 @@
+name: trivy
+description: Scan the repository for vulnerabilities, secrets and misconfigurations with Trivy.
+
+inputs:
+  scan-ref:
+    description: Path to scan.
+    required: false
+    default: "."
+  scanners:
+    description: Comma-separated list of Trivy scanners to enable.
+    required: false
+    default: vuln,secret,misconfig
+  severity:
+    description: Comma-separated severities that are reported.
+    required: false
+    default: HIGH,CRITICAL
+  ignore-unfixed:
+    description: Skip vulnerabilities that have no fixed version available.
+    required: false
+    default: "true"
+  exit-code:
+    description: >-
+      Process exit code when findings are present. "1" fails the job, "0"
+      reports without failing.
+    required: false
+    default: "1"
+
+runs:
+  using: composite
+  steps:
+    - name: Run Trivy
+      uses: aquasecurity/trivy-action@0.33.1
+      with:
+        scan-type: fs
+        scan-ref: ${{ inputs.scan-ref }}
+        scanners: ${{ inputs.scanners }}
+        severity: ${{ inputs.severity }}
+        ignore-unfixed: ${{ inputs.ignore-unfixed }}
+        exit-code: ${{ inputs.exit-code }}
+        format: table
+        # The vulnerability database is pulled from a public registry that
+        # rate-limits anonymous traffic; caching it keeps CI from failing for
+        # reasons unrelated to the code under test.
+        cache: "true"
+      env:
+        # Mirrors of the Trivy DBs on GHCR. Set explicitly so the source is
+        # visible here rather than being an implicit tool default.
+        TRIVY_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-db:2
+        TRIVY_JAVA_DB_REPOSITORY: ghcr.io/aquasecurity/trivy-java-db:1
