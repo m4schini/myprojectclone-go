@@ -18,6 +18,9 @@ const (
 )
 
 var (
+	// Version is the application version. It is set from main at startup,
+	// where the build injects it via -ldflags "-X main.version=...", and
+	// defaults to "dev" for local builds.
 	Version = "dev"
 )
 
@@ -37,6 +40,10 @@ func InDevelopmentEnvironment() bool {
 	return enabled
 }
 
+// Init configures viper: it searches for a ".<appname>.yaml" config file in
+// the user's home directory, /etc/<appname> (Linux only) and the current
+// directory, and enables automatic environment variable lookup. A missing
+// config file is not an error.
 func Init() {
 	// Find home directory.
 	home, err := os.UserHomeDir()

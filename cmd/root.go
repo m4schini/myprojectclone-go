@@ -11,7 +11,7 @@ import (
 )
 
 // rootCmd represents the base command when called without any subcommands.
-var rootCmd = &cobra.Command{
+var rootCmd = &cobra.Command{ //nolint:exhaustruct_v5 // cobra commands set only the fields they need
 	Use:   config.AppName,
 	Short: "A brief description of your application",
 	Long: `A longer description that spans multiple lines and likely contains
