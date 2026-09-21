@@ -27,13 +27,13 @@ runs:
     # downloads itself (golangci-lint, gitleaks). Version comes from go.mod
     # so it cannot drift from the version the build uses.
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
         cache: false
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: "3.x"
 
@@ -42,7 +42,7 @@ runs:
     # file: bumping any `rev:` invalidates it, which is exactly when the
     # environments must be rebuilt.
     - name: Cache pre-commit environments
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.cache/pre-commit
         key: pre-commit-${{ runner.os }}-py${{ env.pythonLocation }}-${{ hashFiles('.pre-commit-config.yaml') }}

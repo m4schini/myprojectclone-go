@@ -24,7 +24,7 @@ runs:
     # toolchain. The version comes from go.mod rather than being pinned
     # here, so the Go version is also defined in exactly one place.
     - name: Set up Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@v7
       with:
         go-version-file: go.mod
         # golangci-lint-action manages its own module/build cache below;
@@ -32,7 +32,7 @@ runs:
         cache: false
 
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v8
+      uses: golangci/golangci-lint-action@v9
       with:
         version: ${{ inputs.version }}
         args: ${{ inputs.args }}
